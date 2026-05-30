@@ -12,8 +12,6 @@
     <link rel="icon"
         href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎒</text></svg>">
 
-    <!-- model-viewer for the interactive exploded hardware view -->
-    <script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
 
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-LS6L6LB7RX"></script>
@@ -308,39 +306,44 @@
             aspect-ratio: 1 / 1;
         }
 
-        .hw-viewer model-viewer {
+        .hw-viewer canvas {
             display: block;
             position: absolute;
             inset: 0;
-            width: 100%;
-            height: 100%;
-            --poster-color: transparent;
-            background-color: #faf7ff;
+            width: 100% !important;
+            height: 100% !important;
         }
 
-        .hotspot {
+        .hw-label {
+            position: absolute;
             display: flex;
             align-items: center;
-            justify-content: center;
-            width: 1.8em;
-            height: 1.8em;
-            border-radius: 50%;
-            background: #8C00FF;
-            color: #fff;
-            font-size: 0.68em;
-            font-weight: 700;
-            font-family: 'Inter', sans-serif;
-            border: 2px solid #fff;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-            cursor: default;
+            gap: 5px;
             pointer-events: none;
+            transform: translate(-50%, -50%);
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: opacity 0.4s;
         }
-
-        .hotspot[data-visible] {
-            opacity: 1;
+        .hw-label.visible { opacity: 1; }
+        .hw-label-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: #8C00FF; flex-shrink: 0;
+            box-shadow: 0 0 0 2px rgba(140,0,255,0.22);
         }
+        .hw-label-text {
+            font: 600 10px/1 Inter, sans-serif; color: #1a1a1a;
+            background: rgba(255,255,255,0.90); padding: 3px 7px;
+            border-radius: 4px; white-space: nowrap;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+        }
+        /* label-adjust mode */
+        .hw-label.adjustable {
+            pointer-events: all;
+            cursor: grab;
+            outline: 1.5px dashed #8C00FF;
+            outline-offset: 2px;
+        }
+        .hw-label.adjustable:active { cursor: grabbing; }
 
         .hw-badge {
             position: absolute;
@@ -389,8 +392,10 @@
         }
 
         .hw-toggle:hover {
-            background: #f3ebff;
+            background: rgba(243,235,255,0.95);
         }
+
+        .hw-toggle:hover { background: #f3ebff; }
 
         .hw-toggle[aria-pressed="true"] {
             background: #8C00FF;
@@ -399,8 +404,8 @@
         }
 
         .hw-toggle-dot {
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             background: currentColor;
             transition: transform 0.2s;
@@ -410,65 +415,26 @@
             transform: scale(1.4);
         }
 
-        .hw-parts {
-            list-style: none;
-            padding: 0;
+        .hw-specs {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.18em 0.75em;
+            margin: 0.5em 0 0.75em;
+        }
+        .hw-specs dt {
+            font-size: 0.78em;
+            color: #999;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .hw-specs dd {
+            font-size: 0.78em;
+            color: #333;
             margin: 0;
         }
 
-        .hw-parts li {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 0.6em;
-            align-items: center;
-            padding: 0.55em 0.4em;
-            border-bottom: 1px solid #f0f0f0;
-            cursor: default;
-            border-radius: 4px;
-            transition: background 0.15s, padding-left 0.15s;
-        }
-
-        .hw-parts li:last-child {
-            border-bottom: none;
-        }
-
-        .hw-parts li:hover {
-            background: #faf5ff;
-            padding-left: 0.7em;
-        }
-
-        .hw-parts .num {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 1.6em;
-            height: 1.6em;
-            border-radius: 50%;
-            background: #8C00FF;
-            color: #fff;
-            font-size: 0.68em;
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-            flex-shrink: 0;
-            align-self: center;
-        }
-
-        .hw-parts .pname {
-            font-size: 0.92em;
-            font-weight: 600;
-            color: #222;
-        }
-
-        .hw-parts .pnote {
-            font-size: 0.78em;
-            color: #777;
-            margin-top: 1px;
-        }
-
         @media (max-width: 760px) {
-            .hw-grid {
-                grid-template-columns: 1fr;
-            }
+            .hw-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -535,26 +501,9 @@
         </div>
         <div class="hw-grid">
             <div class="hw-viewer">
-                <model-viewer id="hw-model" src="models/backpack/backpack.gltf"
-                    alt="Exploded view of the ModPack backpack assembly" camera-controls interaction-prompt="none"
-                    animation-name="Animation 1" orientation="0deg 0deg 180deg"
-                    camera-orbit="-167.1deg 157.5deg 324.654m" field-of-view="23.1deg" shadow-intensity="0.4"
-                    shadow-softness="0.7" exposure="1.0" environment-image="neutral">
-                    <!-- hotspots: visible only in exploded state -->
-                    <button slot="hotspot-1" class="hotspot" data-position="122.8127 -31.2954 -95.1025"
-                        data-normal="-0.4695 -0.4754 -0.7440">01</button>
-                    <button slot="hotspot-2" class="hotspot" data-position="123.3493 -16.3523 -113.7127"
-                        data-normal="-0.4716 -0.8708 0.1389">02</button>
-                    <button slot="hotspot-3" class="hotspot" data-position="114.3276 -54.7492 -54.4825"
-                        data-normal="-0.4716 -0.8708 0.1389">03</button>
-                    <button slot="hotspot-4" class="hotspot" data-position="102.4558 -50.8970 -79.1305"
-                        data-normal="-0.4716 -0.8708 0.1389">04</button>
-                    <button slot="hotspot-5" class="hotspot" data-position="83.45 -35.14 -34.79"
-                        data-normal="-0.4716 -0.8708 0.1389">05</button>
-                    <button slot="hotspot-6" class="hotspot" data-position="107.0135 -52.5284 -69.3831"
-                        data-normal="-0.4716 -0.8708 0.1389">06</button>
-                </model-viewer>
-                <div class="hw-badge">GLTF · drag to orbit · scroll to zoom</div>
+                <canvas id="hw-canvas"></canvas>
+                <div id="hw-label-layer" style="position:absolute;inset:0;pointer-events:none;"></div>
+                <div class="hw-badge">drag to orbit · scroll to zoom</div>
             </div>
             <div class="hw-panel">
                 <div class="hw-toggle-wrap">
@@ -563,27 +512,28 @@
                         <span id="hw-toggle-label">Explode view</span>
                     </button>
                 </div>
-                <ul class="hw-parts">
-                    <li><span class="num">01</span><span><span class="pname">3D-printed panels</span>
-                            <div class="pnote">Front &amp; rear shells with hex cutouts, toggle-latch secured</div>
-                        </span></li>
-                    <li><span class="num">02</span><span><span class="pname">Leader-arm mounts</span>
-                            <div class="pnote">Top-facing slots for swappable 6/7-DoF leader arms</div>
-                        </span></li>
-                    <li><span class="num">03</span><span><span class="pname">Removable shelves</span>
-                            <div class="pnote">Five internal shelves housing compute, power &amp; accessories</div>
-                        </span></li>
-                    <li><span class="num">04</span><span><span class="pname">Onboard mini PC</span>
-                            <div class="pnote">Module activation, data logging, and target-robot startup and shutdown
-                            </div>
-                        </span></li>
-                    <li><span class="num">05</span><span><span class="pname">Power distribution</span>
-                            <div class="pnote">Battery banks &amp; power board feeding arms, PC, and headset</div>
-                        </span></li>
-                    <li><span class="num">06</span><span><span class="pname">Module interfaces</span>
-                            <div class="pnote">Vision Pro (active perception) charger holder</div>
-                        </span></li>
-                </ul>
+                <div class="subsection-title" style="margin-top:0;">3D-Printed Hardware</div>
+                <p style="font-size:0.88em;color:#444;line-height:1.6;margin:0 0 0.85em;">
+                    The backpack is fabricated from 3D-printed parts, improving accessibility and enabling rapid modification by the research community.
+                </p>
+                <p style="font-size:0.88em;color:#444;line-height:1.6;margin:0 0 0.85em;">
+                    The internal volume is organized into five removable shelves that house the onboard compute, power, and optional accessories. Following ergonomic observations from prior backpack-based systems, which suggest that vertically distributed loads near the thoracic region can reduce carrying strain, the PC and power banks are arranged along the operator's spine. To further reduce weight and improve thermal ventilation, excess material is removed from both the structural panels and internal shelves.
+                </p>
+                <div class="subsection-title">Print Settings</div>
+                <dl class="hw-specs">
+                    <dt>Material</dt>   <dd>PLA</dd>
+                    <dt>Infill</dt>     <dd>15% · Gyroid</dd>
+                    <dt>Layer height</dt><dd>0.2 mm</dd>
+                    <dt>Walls</dt>      <dd>2 · 0.4 mm nozzle</dd>
+                    <dt>Supports</dt>   <dd>Tree</dd>
+                    <dt>Printers</dt>   <dd>Bambu H2D · X1 Carbon</dd>
+                </dl>
+                <p style="font-size:0.85em;color:#555;line-height:1.6;margin:0 0 0.75em;">
+                    The choice for the backpack to be fabricated in two parts is such that it can be easily 3D printed.
+                </p>
+                <p style="font-size:0.78em;color:#999;margin:auto 0 0;padding-top:0.5em;border-top:1px solid #f0f0f0;">
+                    Hardware &amp; software will be open-sourced.
+                </p>
             </div>
         </div>
 
@@ -884,69 +834,336 @@
     <script src="assets/js/util.js"></script>
     <script src="assets/js/main.js"></script>
 
-    <!-- Exploded-view: toggle between two clean static poses of "Animation 1".
-         The baked Vectary spline oscillates through the timeline, so instead of
-         scrubbing we snap to two known-good frames: t=0 (assembled) and t=1.5
-         (the fully separated pose at peak offset). The model stays paused on the
-         chosen frame; orbit/zoom remain interactive. -->
-    <script>
-        (function () {
-            var model = document.getElementById('hw-model');
-            var btn = document.getElementById('hw-toggle');
-            var label = document.getElementById('hw-toggle-label');
-            if (!model || !btn) return;
+    <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
+    <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-            var T_ASSEMBLED = 0.0;
-            var T_EXPLODED = 1.8;
-            var exploded = false;
-            var busy = false;
+    const wrap = document.querySelector('.hw-viewer');
+    const canvas = document.getElementById('hw-canvas');
+    const btn = document.getElementById('hw-toggle');
+    const label = document.getElementById('hw-toggle-label');
+    const labelLayer = document.getElementById('hw-label-layer');
 
-            var hotspots = model.querySelectorAll('.hotspot');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setClearColor(0xffffff, 1);
 
-            function setHotspots(visible) {
-                hotspots.forEach(function (h) {
-                    if (visible) h.setAttribute('data-visible', '');
-                    else h.removeAttribute('data-visible');
-                });
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.02).texture;
+    pmrem.dispose();
+
+    const camera = new THREE.PerspectiveCamera(28, 1, 1, 5000);
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true; controls.dampingFactor = 0.08;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 3.5);
+    keyLight.position.set(300, 500, 400);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 10; keyLight.shadow.camera.far = 3000;
+    keyLight.shadow.camera.left = -500; keyLight.shadow.camera.right = 500;
+    keyLight.shadow.camera.top = 500; keyLight.shadow.camera.bottom = -500;
+    keyLight.shadow.bias = -0.001;
+    scene.add(keyLight);
+    const fillLight = new THREE.DirectionalLight(0xe8eeff, 0.7); fillLight.position.set(-300, 200, 200); scene.add(fillLight);
+    const rimLight = new THREE.DirectionalLight(0xfff8f0, 0.4); rimLight.position.set(50, -200, -300); scene.add(rimLight);
+
+    const S = 150;
+    const OFFSETS = {
+        top_bracket:                [0, 0,  S*2],
+        top_bracket_accessories:    [0, 0,  S*2],
+        bottom_bracket:             [0, 0,  S*2],
+        bottom_bracket_accessories: [0, -S*1.5, S*2],
+        front_panel:                [0, 0, -S*2],
+        front_panel_accessories:    [0, 0, -S*2],
+        back_panel:                 [0, 0, -S*2],
+        back_panel_accessories:     [0, 0, -S*2],
+        main_frame_shell:           [0, 0, 0],
+        main_frame_bars:            [0, 0, 0],
+        shelf_a_frame:              [S*2.5, 0, 0],
+        shelf_a_battery:            [S*3.5, 0, 0],
+        shelf_a_holder:             [S*3.0, 0, 0],
+        shelf_b_battery:            [S*3.5, 0, 0],
+        shelf_b_holder:             [S*3.0, 0, 0],
+        shelf_c_frame:              [S*2.5, 0, 0],
+        shelf_c_battery:            [S*3.5, 0, 0],
+        shelf_c_holder:             [S*3.0, 0, 0],
+        shelf_d_battery:            [S*3.5, 0, 0],
+        shelf_d_holder:             [S*3.0, 0, 0],
+        shelf_e_battery:            [S*3.5, 0, 0],
+        shelf_e_holder:             [S*3.0, 0, 0],
+        electronics:                [S*1.2, 0, 0],
+    };
+
+    const JADE_MAT  = new THREE.MeshStandardMaterial({color:0xe8ede4, roughness:0.82, metalness:0.0});
+    const BATT_MAT  = new THREE.MeshStandardMaterial({color:0x7a7874, roughness:0.55, metalness:0.05});
+    const HOLD_MAT  = new THREE.MeshStandardMaterial({color:0xb8b4ae, roughness:0.70, metalness:0.02});
+    const PCB_MAT   = new THREE.MeshStandardMaterial({color:0x383836, roughness:0.45, metalness:0.08});
+    const METAL_MAT = new THREE.MeshStandardMaterial({color:0x282726, roughness:0.2,  metalness:0.75});
+    const FRAME_MAT = new THREE.MeshStandardMaterial({color:0x3f3d3b, roughness:0.3,  metalness:0.75});
+
+    const PLA_NODES        = new Set(['top_bracket','bottom_bracket','front_panel','back_panel','main_frame_shell','shelf_a_frame','shelf_c_frame','electronics']);
+    const FRAME_METAL_NODES= new Set(['main_frame_bars']);
+    const BATT_NODES       = new Set(['shelf_a_battery','shelf_b_battery','shelf_c_battery','shelf_d_battery','shelf_e_battery']);
+    const HOLD_NODES       = new Set(['shelf_a_holder','shelf_b_holder','shelf_c_holder','shelf_d_holder','shelf_e_holder']);
+    const PCB_NODES        = new Set(['top_bracket_accessories','front_panel_accessories','bottom_bracket_accessories']);
+    const METAL_NODES      = new Set(['back_panel_accessories']);
+
+    // id: stable key for localStorage offset storage — do not change after tuning
+    const LABEL_DEFS = [
+        {id:'front_panel',    name:'Front Panel',               nodes:['front_panel']},
+        {id:'back_panel',     name:'Back Panel',                nodes:['back_panel']},
+        {id:'bar_bracket',    name:'Bar Bracket',               nodes:['top_bracket']},
+        {id:'toggle_latch',   name:'Toggle Latch',              nodes:['back_panel_accessories']},
+        {id:'frame_rails',    name:'Frame Rails',               nodes:['main_frame_bars']},
+        {id:'mini_pc',        name:'Mini PC Holder',            nodes:['main_frame_shell']},
+        {id:'batteries',      name:'Battery Banks',             nodes:['shelf_a_battery','shelf_b_battery','shelf_c_battery','shelf_d_battery','shelf_e_battery','shelf_a_holder','shelf_b_holder','shelf_c_holder','shelf_d_holder','shelf_e_holder']},
+        {id:'charger_holder', name:'Vision Pro Charger Holder', nodes:['electronics']},
+        {id:'u2d2',           name:'U2D2 Power Hub',            nodes:['bottom_bracket_accessories']},
+        {id:'power_board_frt',name:'Power Board',               nodes:['front_panel_accessories']},
+    ];
+
+    // Paste the output of "Copy offsets" here to bake in final positions permanently.
+    // Shape: { id: {x, y, flip}, ... }  — pixel offsets from the projected 3D anchor point.
+    const BAKED_OFFSETS = {};
+
+    const LABEL_STORE_KEY = 'hw_label_offsets_v1';
+    const adjustMode = location.search.includes('labels');
+
+    function loadOffsets() {
+        // localStorage overrides baked offsets in adjust mode; baked offsets used in production
+        try {
+            const stored = JSON.parse(localStorage.getItem(LABEL_STORE_KEY)) || {};
+            return Object.assign({}, BAKED_OFFSETS, stored);
+        } catch { return BAKED_OFFSETS; }
+    }
+    function saveOffsets(offsets) {
+        localStorage.setItem(LABEL_STORE_KEY, JSON.stringify(offsets));
+    }
+
+    const nodeMap = {};
+    let labelAnchors = [];
+    let exploded = false, animating = false;
+    let initCamPos = null, initTarget = null;
+
+    function resize() {
+        const W = wrap.clientWidth, H = wrap.clientHeight;
+        renderer.setSize(W, H);
+        renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+        camera.aspect = W / H;
+        camera.updateProjectionMatrix();
+    }
+    new ResizeObserver(resize).observe(wrap);
+    resize();
+
+    function getNodeName(obj) {
+        let n = obj;
+        while (n.parent && !OFFSETS[n.name]) n = n.parent;
+        return n.name;
+    }
+
+    new GLTFLoader().load('models/backpack.glb', gltf => {
+        scene.add(gltf.scene);
+        // First pass: register every node whose name is in OFFSETS directly.
+        gltf.scene.traverse(obj => {
+            if (OFFSETS[obj.name] && !nodeMap[obj.name]) nodeMap[obj.name] = obj;
+        });
+        gltf.scene.traverse(obj => {
+            if (obj.isMesh) {
+                const nname = getNodeName(obj);
+                if (FRAME_METAL_NODES.has(nname))      obj.material = FRAME_MAT;
+                else if (BATT_NODES.has(nname))        obj.material = BATT_MAT;
+                else if (HOLD_NODES.has(nname))        obj.material = HOLD_MAT;
+                else if (PCB_NODES.has(nname))         obj.material = PCB_MAT;
+                else if (METAL_NODES.has(nname))       obj.material = METAL_MAT;
+                else                                   obj.material = JADE_MAT;
+                obj.castShadow = true;
+                obj.receiveShadow = true;
             }
+        });
 
-            function setLabel() {
-                btn.setAttribute('aria-pressed', exploded ? 'true' : 'false');
-                if (label) label.textContent = exploded ? 'Assembled view' : 'Explode view';
-            }
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3()).length();
 
-            function goExplode() {
-                busy = true;
-                model.timeScale = 1;
-                model.currentTime = T_ASSEMBLED;
-                model.play({ repetitions: 1 });
-                model.addEventListener('finished', function onDone() {
-                    model.removeEventListener('finished', onDone);
-                    setHotspots(true);
-                    busy = false;
-                });
-            }
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(3000, 3000),
+            new THREE.ShadowMaterial({opacity: 0.12})
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = box.min.y - 1;
+        ground.receiveShadow = true;
+        scene.add(ground);
 
-            function goAssemble() {
-                busy = true;
-                setHotspots(false);
-                model.timeScale = -1;
-                model.currentTime = T_EXPLODED;
-                model.play({ repetitions: 1 });
-                model.addEventListener('finished', function onDone() {
-                    model.removeEventListener('finished', onDone);
-                    busy = false;
-                });
-            }
+        const dir = new THREE.Vector3(0.7, 0.55, 0.85).normalize();
+        const fovRad = camera.fov * Math.PI / 180;
+        const dist = (size / 2) / Math.tan(fovRad / 2) * 1.15;
+        camera.position.copy(center).addScaledVector(dir, dist);
+        controls.target.copy(center);
+        controls.update();
+        initCamPos = camera.position.clone();
+        initTarget = controls.target.clone();
 
-            model.addEventListener('load', function () { model.pause(); });
-            btn.addEventListener('click', function () {
-                if (busy) return;
-                exploded = !exploded;
-                setLabel();
-                exploded ? goExplode() : goAssemble();
+        // Build grouped label anchors
+        const storedOffsets = loadOffsets();
+        labelAnchors = LABEL_DEFS.map(def => {
+            const saved = storedOffsets[def.id] || {x:0, y:0, flip:false};
+            const el = document.createElement('div');
+            el.className = 'hw-label' + (adjustMode ? ' adjustable' : '');
+            if (saved.flip) el.style.flexDirection = 'row-reverse';
+            el.innerHTML = `<span class="hw-label-dot"></span><span class="hw-label-text">${def.name}</span>`;
+            labelLayer.appendChild(el);
+            return { id: def.id, el, nodes: def.nodes, dx: saved.x, dy: saved.y, flip: !!saved.flip };
+        });
+
+        if (adjustMode) {
+            setupAdjustMode();
+            // Force exploded + labels visible so you can immediately adjust
+            setTimeout(() => {
+                exploded = true;
+                animateTo(true);
+                if (btn) { btn.setAttribute('aria-pressed','true'); label.textContent = 'Assembled view'; }
+            }, 500);
+        }
+        if (label) label.textContent = 'Explode view';
+        const badge = document.querySelector('.hw-badge');
+        if (badge) badge.textContent = 'drag to orbit · scroll to zoom';
+        if (btn) btn.disabled = false;
+    }, xhr => {
+        const pct = xhr.loaded && xhr.total ? Math.round(xhr.loaded / xhr.total * 100) : '…';
+        const badge = document.querySelector('.hw-badge');
+        if (badge) badge.textContent = `Loading ${pct}%`;
+    });
+
+    function setupAdjustMode() {
+
+        // Make labels draggable; click (no move) flips dot side
+        labelAnchors.forEach(entry => {
+            const { el } = entry;
+            let dragging = false, moved = false, startX, startY, startDx, startDy;
+            el.addEventListener('pointerdown', e => {
+                dragging = true; moved = false;
+                startX = e.clientX; startY = e.clientY;
+                startDx = entry.dx; startDy = entry.dy;
+                el.setPointerCapture(e.pointerId);
+                e.stopPropagation();
             });
-        })();
+            el.addEventListener('pointermove', e => {
+                if (!dragging) return;
+                const dx = e.clientX - startX, dy = e.clientY - startY;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+                entry.dx = startDx + dx;
+                entry.dy = startDy + dy;
+                e.stopPropagation();
+            });
+            el.addEventListener('pointerup', () => {
+                dragging = false;
+                if (!moved) {
+                    // Click without drag → flip dot side
+                    entry.flip = !entry.flip;
+                    el.style.flexDirection = entry.flip ? 'row-reverse' : '';
+                }
+                const offsets = loadOffsets();
+                offsets[entry.id] = {x: entry.dx, y: entry.dy, flip: entry.flip};
+                saveOffsets(offsets);
+            });
+        });
+
+    }
+
+    function animateTo(toExploded) {
+        if (animating) return;
+        animating = true;
+        labelAnchors.forEach(({el}) => el.classList.remove('visible'));
+        const nodes = Object.entries(nodeMap);
+        const starts = nodes.map(([, n]) => n.position.clone());
+        const targets = nodes.map(([name]) => {
+            const off = OFFSETS[name] || [0, 0, 0];
+            return toExploded ? new THREE.Vector3(...off) : new THREE.Vector3(0, 0, 0);
+        });
+        const boxAssembled = new THREE.Box3();
+        Object.values(nodeMap).forEach(n => boxAssembled.expandByObject(n));
+        const assembledCenter = boxAssembled.getCenter(new THREE.Vector3());
+        const fovRad = camera.fov * Math.PI / 180;
+        const assembledDist = (boxAssembled.getSize(new THREE.Vector3()).length() / 2) / Math.tan(fovRad / 2) * 1.2;
+        const explodedSize = new THREE.Vector3(...Object.values(OFFSETS).reduce(
+            (acc, o) => [Math.max(acc[0], Math.abs(o[0])), Math.max(acc[1], Math.abs(o[1])), Math.max(acc[2], Math.abs(o[2]))],
+            [0, 0, 0]
+        )).length() * 2 + boxAssembled.getSize(new THREE.Vector3()).length();
+        const explodedDist = (explodedSize / 2) / Math.tan(fovRad / 2) * 1.3;
+        const dir = camera.position.clone().sub(controls.target).normalize();
+        const camStart = camera.position.clone();
+        const camEnd = toExploded
+            ? assembledCenter.clone().addScaledVector(dir, explodedDist)
+            : initCamPos.clone();
+        const t0 = performance.now(), DUR = 650;
+        (function step(now) {
+            const t = Math.min((now - t0) / DUR, 1);
+            const e = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t;
+            nodes.forEach(([, n], i) => n.position.lerpVectors(starts[i], targets[i], e));
+            camera.position.lerpVectors(camStart, camEnd, e);
+            controls.target.lerpVectors(
+                toExploded ? initTarget : assembledCenter,
+                toExploded ? assembledCenter : initTarget,
+                e
+            );
+            controls.update();
+            if (t < 1) {
+                requestAnimationFrame(step);
+            } else {
+                animating = false;
+                if (toExploded) setTimeout(() => labelAnchors.forEach(({el}) => el.classList.add('visible')), 80);
+            }
+        })(t0);
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.addEventListener('click', () => {
+            exploded = !exploded;
+            animateTo(exploded);
+            btn.setAttribute('aria-pressed', exploded ? 'true' : 'false');
+            if (label) label.textContent = exploded ? 'Assembled view' : 'Explode view';
+        });
+    }
+
+    (function render() {
+        requestAnimationFrame(render);
+        controls.update();
+        renderer.render(scene, camera);
+        if (labelAnchors.length) {
+            const W = wrap.clientWidth, H = wrap.clientHeight;
+            const _box = new THREE.Box3();
+            labelAnchors.forEach(({el, nodes, dx, dy}) => {
+                // Recompute world-space center from live node bboxes every frame
+                // so labels stick exactly to the parts as they move and as camera orbits.
+                const worldPos = new THREE.Vector3();
+                let count = 0;
+                nodes.forEach(name => {
+                    if (!nodeMap[name]) return;
+                    _box.setFromObject(nodeMap[name]);
+                    if (!_box.isEmpty()) { worldPos.add(_box.getCenter(new THREE.Vector3())); count++; }
+                });
+                if (!count) { el.style.display = 'none'; return; }
+                worldPos.divideScalar(count);
+                const ndc = worldPos.clone().project(camera);
+                if (ndc.z > 1) { el.style.display = 'none'; return; }
+                el.style.display = 'flex';
+                el.style.left = ((ndc.x * 0.5 + 0.5) * W + dx) + 'px';
+                el.style.top  = ((-ndc.y * 0.5 + 0.5) * H + dy) + 'px';
+            });
+        }
+    })();
     </script>
 </body>
 
