@@ -1,0 +1,953 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>ModPack: An Extensible Teleoperation Interface for Bimanual Mobile Manipulation</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1000">
+    <link rel="stylesheet" href="assets/css/main.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎒</text></svg>">
+
+    <!-- model-viewer for the interactive exploded hardware view -->
+    <script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-LS6L6LB7RX"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-LS6L6LB7RX');
+    </script>
+
+    <meta property="og:url" content="https://modpack-teleop.github.io/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title"
+        content="ModPack: An Extensible Teleoperation Interface for Bimanual Mobile Manipulation" />
+    <meta property="og:description" content="" />
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f8f8f8;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Hero */
+        #hero {
+            background: #fff;
+            color: #111;
+            padding: 3.5em 2em 2.5em;
+            text-align: center;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        #hero h1 {
+            font-size: 3.5em;
+            color: #8C00FF;
+            margin: 0 0 0.15em;
+            letter-spacing: -1px;
+            font-weight: 600;
+        }
+
+        #hero h2 {
+            font-size: 1.4em;
+            font-weight: 400;
+            color: #555;
+            margin: 0 0 1.5em;
+        }
+
+        #hero .teaser {
+            max-width: 900px;
+            margin: 0 auto 1.5em;
+        }
+
+        #hero .teaser img {
+            width: 100%;
+            border-radius: 6px;
+        }
+
+        #hero .abstract {
+            max-width: 780px;
+            margin: 0 auto;
+            font-size: 0.95em;
+            line-height: 1.7;
+            color: #444;
+            text-align: left;
+        }
+
+        /* Stats bar */
+        #stats {
+            background: #fff;
+            border-bottom: 1px solid #e8e0f5;
+            display: flex;
+            justify-content: center;
+            gap: 0;
+        }
+
+        .stat-item {
+            padding: 1.2em 3em;
+            text-align: center;
+            border-right: 1px solid #e8e0f5;
+        }
+
+        .stat-item:last-child {
+            border-right: none;
+        }
+
+        .stat-num {
+            font-size: 2em;
+            font-weight: 700;
+            color: #8C00FF;
+            display: block;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 0.75em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: block;
+            margin-top: 0.3em;
+        }
+
+        /* Main content */
+        #main-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2.5em 2em 3em;
+        }
+
+        /* Section headers */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75em;
+            margin: 2.5em 0 1em;
+        }
+
+        .section-header::before {
+            content: '';
+            display: block;
+            width: 4px;
+            height: 1.4em;
+            background: #8C00FF;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .section-header h3 {
+            margin: 0;
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #111;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .subsection-title {
+            font-size: 1em;
+            font-weight: 600;
+            color: #333;
+            margin: 1.5em 0 0.75em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        /* Video cards */
+        .video-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1em;
+            margin-bottom: 1em;
+        }
+
+        .video-card {
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .video-card video {
+            width: 100%;
+            aspect-ratio: 16/9;
+            display: block;
+            background: #111;
+        }
+
+        .video-caption {
+            padding: 0.5em 0.75em;
+            font-size: 0.85em;
+            color: #555;
+            text-align: center;
+        }
+
+        /* Results table */
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+            margin: 1em 0;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .results-table th {
+            background: #8C00FF;
+            color: #fff;
+            padding: 0.6em 1em;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .results-table td {
+            padding: 0.55em 1em;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+        }
+
+        .results-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .results-table tr.best td {
+            background: #f3ebff;
+            font-weight: 600;
+        }
+
+        .results-table .rate {
+            color: #8C00FF;
+            font-weight: 700;
+        }
+
+        /* Task description box */
+        .task-desc {
+            background: #fff;
+            border-left: 4px solid #8C00FF;
+            border-radius: 0 6px 6px 0;
+            padding: 1em 1.25em;
+            margin-bottom: 1.25em;
+            font-size: 0.95em;
+            line-height: 1.6;
+            color: #444;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Failure label */
+        .fail {
+            color: #c0392b;
+            font-weight: 600;
+        }
+
+        /* Key findings */
+        .findings {
+            background: #faf5ff;
+            border: 1px solid #e0ccff;
+            border-radius: 8px;
+            padding: 1em 1.25em 0.5em;
+            margin: 1em 0;
+        }
+
+        .findings-title {
+            font-size: 0.8em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8C00FF;
+            margin-bottom: 0.5em;
+        }
+
+        .findings ul {
+            margin: 0;
+            padding-left: 1.25em;
+        }
+
+        .findings li {
+            margin-bottom: 0.4em;
+            font-size: 0.9em;
+            color: #444;
+            line-height: 1.5;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #e0e0e0;
+            margin: 2em 0;
+        }
+
+        /* Hardware / exploded view */
+        .hw-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+            gap: 1em;
+            align-items: stretch;
+            margin-bottom: 1em;
+        }
+
+        .hw-viewer {
+            position: relative;
+            min-width: 0;
+            max-width: 100%;
+            background: #faf7ff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            aspect-ratio: 1 / 1;
+        }
+
+        .hw-viewer model-viewer {
+            display: block;
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            --poster-color: transparent;
+            background-color: #faf7ff;
+        }
+
+        .hotspot {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.8em;
+            height: 1.8em;
+            border-radius: 50%;
+            background: #8C00FF;
+            color: #fff;
+            font-size: 0.68em;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+            cursor: default;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .hotspot[data-visible] {
+            opacity: 1;
+        }
+
+        .hw-badge {
+            position: absolute;
+            bottom: 10px;
+            left: 12px;
+            font-size: 0.65em;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #999;
+            font-family: 'Inter', sans-serif;
+            pointer-events: none;
+        }
+
+        .hw-panel {
+            min-width: 0;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            padding: 1.25em 1.25em 1em;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hw-toggle-wrap {
+            margin-bottom: 1.25em;
+        }
+
+        .hw-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55em;
+            width: 100%;
+            justify-content: center;
+            padding: 0.7em 1em;
+            border: 1px solid #e0ccff;
+            border-radius: 100px;
+            background: #faf5ff;
+            color: #8C00FF;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8em;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .hw-toggle:hover {
+            background: #f3ebff;
+        }
+
+        .hw-toggle[aria-pressed="true"] {
+            background: #8C00FF;
+            border-color: #8C00FF;
+            color: #fff;
+        }
+
+        .hw-toggle-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            transition: transform 0.2s;
+        }
+
+        .hw-toggle[aria-pressed="true"] .hw-toggle-dot {
+            transform: scale(1.4);
+        }
+
+        .hw-parts {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .hw-parts li {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.6em;
+            align-items: center;
+            padding: 0.55em 0.4em;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: default;
+            border-radius: 4px;
+            transition: background 0.15s, padding-left 0.15s;
+        }
+
+        .hw-parts li:last-child {
+            border-bottom: none;
+        }
+
+        .hw-parts li:hover {
+            background: #faf5ff;
+            padding-left: 0.7em;
+        }
+
+        .hw-parts .num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.6em;
+            height: 1.6em;
+            border-radius: 50%;
+            background: #8C00FF;
+            color: #fff;
+            font-size: 0.68em;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            flex-shrink: 0;
+            align-self: center;
+        }
+
+        .hw-parts .pname {
+            font-size: 0.92em;
+            font-weight: 600;
+            color: #222;
+        }
+
+        .hw-parts .pnote {
+            font-size: 0.78em;
+            color: #777;
+            margin-top: 1px;
+        }
+
+        @media (max-width: 760px) {
+            .hw-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body id="top">
+
+    <!-- Hero -->
+    <div id="hero">
+        <h1>ModPack</h1>
+        <h2>An Extensible Teleoperation Interface for Bimanual Mobile Manipulation</h2>
+        <div class="teaser">
+            <img src="images/teaser_v4.png" alt="ModPack teaser">
+        </div>
+        <div class="abstract">
+            Existing teleoperation systems are often tailored to specific robot hardware and task domains, limiting
+            their scalability and adaptability. We present ModPack, a modular and extensible teleoperation system
+            designed to support diverse robot embodiments and task requirements within a unified framework.
+            At the core of ModPack is a self-contained wearable "backpack" that integrates onboard computation,
+            power, communication, and data storage. Built on top of this shared interface, the system supports
+            plug-and-play capability modules including joint-level teleoperation with haptic feedback, mobile
+            manipulation, and active perception. Experiments across two distinct robot platforms and real-world
+            mobile manipulation tasks demonstrate that ModPack provides a flexible and reusable framework for
+            data collection and policy learning.
+        </div>
+    </div>
+
+
+    <!-- Main content -->
+    <div id="main-content">
+
+        <!-- Teleoperation Videos — hidden until R2 upload ready -->
+        <!--
+        <div class="section-header">
+            <h3>Teleoperation Videos</h3>
+        </div>
+        <div class="video-grid">
+            <div class="video-card">
+                <video controls autoplay muted loop playsinline>
+                    <source src="videos/demo.mp4" type="video/mp4">
+                </video>
+                <div class="video-caption">Cloth Placement with Active Perception</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay muted loop playsinline>
+                    <source src="videos/policy_rollout.mp4" type="video/mp4">
+                </video>
+                <div class="video-caption">Box Transfer with Haptic Feedback</div>
+            </div>
+        </div>
+        -->
+
+        <!-- Hardware: interactive exploded view -->
+        <div class="section-header">
+            <h3>Inside the Backpack</h3>
+        </div>
+        <div class="task-desc">
+            The ModPack core is a wearable backpack base unit that moves with the operator while providing a
+            configurable mounting and housing structure for modular hardware components. The main backpack assembly
+            consists of 3D-printed front and rear panels secured with toggle latches, allowing convenient access to
+            the internal components. The internal volume is organized into five removable shelves that house the
+            onboard compute, power, and optional accessories.
+            <span style="display:block; margin-top:0.6em; font-size:0.9em; color:#777;">Toggle the exploded view to
+                separate the assembly, and drag the model to orbit and inspect the components.</span>
+        </div>
+        <div class="hw-grid">
+            <div class="hw-viewer">
+                <model-viewer id="hw-model" src="models/backpack/backpack.gltf"
+                    alt="Exploded view of the ModPack backpack assembly" camera-controls interaction-prompt="none"
+                    animation-name="Animation 1" orientation="0deg 0deg 180deg"
+                    camera-orbit="-167.1deg 157.5deg 324.654m" field-of-view="23.1deg" shadow-intensity="0.4"
+                    shadow-softness="0.7" exposure="1.0" environment-image="neutral">
+                    <!-- hotspots: visible only in exploded state -->
+                    <button slot="hotspot-1" class="hotspot" data-position="122.8127 -31.2954 -95.1025"
+                        data-normal="-0.4695 -0.4754 -0.7440">01</button>
+                    <button slot="hotspot-2" class="hotspot" data-position="123.3493 -16.3523 -113.7127"
+                        data-normal="-0.4716 -0.8708 0.1389">02</button>
+                    <button slot="hotspot-3" class="hotspot" data-position="114.3276 -54.7492 -54.4825"
+                        data-normal="-0.4716 -0.8708 0.1389">03</button>
+                    <button slot="hotspot-4" class="hotspot" data-position="102.4558 -50.8970 -79.1305"
+                        data-normal="-0.4716 -0.8708 0.1389">04</button>
+                    <button slot="hotspot-5" class="hotspot" data-position="83.45 -35.14 -34.79"
+                        data-normal="-0.4716 -0.8708 0.1389">05</button>
+                    <button slot="hotspot-6" class="hotspot" data-position="107.0135 -52.5284 -69.3831"
+                        data-normal="-0.4716 -0.8708 0.1389">06</button>
+                </model-viewer>
+                <div class="hw-badge">GLTF · drag to orbit · scroll to zoom</div>
+            </div>
+            <div class="hw-panel">
+                <div class="hw-toggle-wrap">
+                    <button id="hw-toggle" class="hw-toggle" type="button" aria-pressed="false">
+                        <span class="hw-toggle-dot"></span>
+                        <span id="hw-toggle-label">Explode view</span>
+                    </button>
+                </div>
+                <ul class="hw-parts">
+                    <li><span class="num">01</span><span><span class="pname">3D-printed panels</span>
+                            <div class="pnote">Front &amp; rear shells with hex cutouts, toggle-latch secured</div>
+                        </span></li>
+                    <li><span class="num">02</span><span><span class="pname">Leader-arm mounts</span>
+                            <div class="pnote">Top-facing slots for swappable 6/7-DoF leader arms</div>
+                        </span></li>
+                    <li><span class="num">03</span><span><span class="pname">Removable shelves</span>
+                            <div class="pnote">Five internal shelves housing compute, power &amp; accessories</div>
+                        </span></li>
+                    <li><span class="num">04</span><span><span class="pname">Onboard mini PC</span>
+                            <div class="pnote">Module activation, data logging, and target-robot startup and shutdown
+                            </div>
+                        </span></li>
+                    <li><span class="num">05</span><span><span class="pname">Power distribution</span>
+                            <div class="pnote">Battery banks &amp; power board feeding arms, PC, and headset</div>
+                        </span></li>
+                    <li><span class="num">06</span><span><span class="pname">Module interfaces</span>
+                            <div class="pnote">Vision Pro (active perception) charger holder</div>
+                        </span></li>
+                </ul>
+            </div>
+        </div>
+
+        <hr>
+
+        <!-- Capability Experiments -->
+        <div class="section-header">
+            <h3>Capability Experiments</h3>
+        </div>
+
+        <!-- Task (a) -->
+        <div class="subsection-title">(a) Cloth Placement with Active Perception</div>
+        <div class="task-desc">
+            A cloth is placed in front of the robot on a counter, where a basket is either to the left or to the right
+            of the robot. The robot must move forward to grasp the cloth and then reverse, at which point it should
+            locate the basket on either side and traverse towards it, finishing the task once it places the cloth in
+            the basket. The main challenge is that the robot must use its active perception module to search for the
+            basket, which may not be in view at the start of the task.
+        </div>
+
+        <p style="font-size:0.85em; font-weight:600; color:#8C00FF; margin-bottom:0.5em;">POLICY ROLLOUTS</p>
+        <div class="video-grid">
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/cloth/all-left-success-blurred.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">All cameras — success</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/cloth/wrist-success-right.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Wrist camera — success</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/cloth/head-success-blurred.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Head camera only — success</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/cloth/head-success-2.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Head camera only — success</div>
+            </div>
+        </div>
+
+        <p style="font-size:0.85em; font-weight:600; color:#c0392b; margin-bottom:0.5em;">FAILURE CASES</p>
+        <div class="video-grid">
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/cloth/fail-lose-sight.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Wrist cam only: <span class="fail">loses sight of cloth</span> during
+                    navigation</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source
+                        src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/cloth/head-backup-failure-blurred.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Head cam only: <span class="fail">backs up without cloth</span></div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/cloth/wrist-missed.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Wrist cam only: <span class="fail">incorrect placement</span> — cloth dropped
+                    on basket edge</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/cloth/fail-grasp.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">All cameras: <span class="fail">bad grasp</span> of cloth</div>
+            </div>
+        </div>
+
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th>Policy</th>
+                    <th>Successes</th>
+                    <th>Success Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="best">
+                    <td>Head Camera Only</td>
+                    <td>22 / 25</td>
+                    <td class="rate">88%</td>
+                </tr>
+                <tr>
+                    <td>All Cameras</td>
+                    <td>20 / 25</td>
+                    <td class="rate">80%</td>
+                </tr>
+                <tr>
+                    <td>Wrist Camera Only</td>
+                    <td>3 / 25</td>
+                    <td class="rate">12%</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="findings">
+            <div class="findings-title">Key Findings</div>
+            <ul>
+                <li>[Head Cam] policy achieves the highest success rate, succeeding in 22/25 rollouts. [All Cam] policy
+                    succeeds in 20/25 rollouts, while [Wrist Cam] policy succeeds on only 3/25 rollouts.</li>
+                <li>We hypothesize that the head camera performs best because the cloth admits many viable grasps,
+                    reducing the need for close-up wrist observations, while the head camera provides depth and a
+                    broader egocentric view for grasping and basket localization. Moreover, using only the head camera
+                    avoids potential out of distribution wrist camera observations caused by variations in wrist pose
+                    and cloth deformation.</li>
+                <li>In contrast, [Wrist Cam] most often fails due to placement errors, as the policy lacks sufficient
+                    context of the basket location.</li>
+            </ul>
+        </div>
+
+        <hr>
+
+        <!-- Task (b) -->
+        <div class="subsection-title">(b) Box Transfer with Haptic Feedback</div>
+        <div class="task-desc">
+            The robot is required to pick up a box from a cabinet, move to a rack, and place the box onto the
+            unoccupied shelf (either top or bottom). This task requires whole-system coordination, bimanual
+            coordination, active perception to keep the box in view, and navigation to the placement location.
+            The haptic feedback module prevents excessive force and facilitates bimanual coordination during grasping
+            and transport.
+        </div>
+
+        <p style="font-size:0.85em; font-weight:600; color:#8C00FF; margin-bottom:0.5em; margin-top:1em;">ALL CAMERAS +
+            TORQUE</p>
+        <div class="video-grid">
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/box/all-torque-2.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Top shelf</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/box/all-torque-1.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Bottom shelf</div>
+            </div>
+        </div>
+
+        <p style="font-size:0.85em; font-weight:600; color:#8C00FF; margin-bottom:0.5em;">ALL CAMERAS</p>
+        <div class="video-grid">
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/box/all-cam-1.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Top shelf</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/box/all-cam-2.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Bottom shelf</div>
+            </div>
+        </div>
+
+        <p style="font-size:0.85em; font-weight:600; color:#8C00FF; margin-bottom:0.5em;">HEAD CAMERA ONLY</p>
+        <div class="video-grid">
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/box/head-cam-2.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Top shelf</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/box/head-cam-1.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Bottom shelf</div>
+            </div>
+        </div>
+
+        <p style="font-size:0.85em; font-weight:600; color:#c0392b; margin-bottom:0.5em; margin-top:1em;">FAILURE CASES
+        </p>
+        <div class="video-grid">
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/box/all-base-overshoot.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">All cameras: <span class="fail">base overshoot</span> — robot base pushes
+                    cabinet forward</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/box/head-near-collision.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">Head cam only: <span class="fail">near collision</span> — arm nearly collides
+                    during placement</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/box/all-bad-grasp.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">All cameras: <span class="fail">bad grasp</span> of box</div>
+            </div>
+            <div class="video-card">
+                <video controls autoplay loop muted playsinline>
+                    <source src="https://pub-fde7173be61a45f896001d63ff5e774b.r2.dev/box/all-torque-drop.mp4"
+                        type="video/mp4">
+                </video>
+                <div class="video-caption">All cameras + torque: <span class="fail">drops box</span> during transport
+                </div>
+            </div>
+        </div>
+
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th>Policy</th>
+                    <th>Successes</th>
+                    <th>Success Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="best">
+                    <td>All Cameras + Torque</td>
+                    <td>12 / 20</td>
+                    <td class="rate">60%</td>
+                </tr>
+                <tr>
+                    <td>Head Camera Only</td>
+                    <td>11 / 20</td>
+                    <td class="rate">55%</td>
+                </tr>
+                <tr>
+                    <td>All Cameras</td>
+                    <td>6 / 20</td>
+                    <td class="rate">30%</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="findings">
+            <div class="findings-title">Key Findings</div>
+            <ul>
+                <li>The policy conditioned on all camera views and joint torques [All Cam + Torque] achieves the highest
+                    success rate, succeeding in 12/20 rollouts, while [Head Cam] policy succeeds in 11/20 rollouts, and
+                    [All Cam] policy succeeds in 6/20 rollouts.</li>
+                <li>A common failure mode of the [All Cam] policy is bad grasp poses. We hypothesize that incorporating
+                    projected joint torques improves performance by providing a coarse alignment signal for grasp timing
+                    and depth.</li>
+            </ul>
+        </div>
+
+        <hr>
+
+        <!-- More Results -->
+        <div class="section-header"><h3>More Results</h3></div>
+        <div class="subsection-title">Attention Pattern Analysis</div>
+        <div style="background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.08); padding:1.25em; margin-bottom:1em; display:flex; align-items:center; gap:1.5em;">
+            <img src="images/visual_attention.png" alt="Visual attention visualization" style="width:45%; flex-shrink:0; border-radius:4px;">
+            <p style="color:#555; font-size:0.9em; line-height:1.6; margin:0;">
+                We provide a qualitative analysis of the model's attention patterns. As shown in the above figure, we
+                visualize the attention weights over image patches from the final layer of the ViT encoder for both
+                the [All Cam] and [All Cam + Torque] policies. The torque-conditioned policy appears to attend
+                more strongly to task-relevant regions, such as the edges of the box that are informative for grasping,
+                whereas the vision-only policy attends to less relevant regions. We also visualize the
+                aggregated attention weights assigned to the torque tokens in the DiT model for the [All Cam +
+                Torque] policy. The attention weights for both the left- and right-arm torque tokens increase as the
+                robot approaches the box and initiates grasping, suggesting that the policy increasingly relies on
+                torque information during contact-critical phases of the task.
+            </p>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="assets/js/jquery.min.js"></script>
+    <script src="assets/js/jquery.poptrox.min.js"></script>
+    <script src="assets/js/skel.min.js"></script>
+    <script src="assets/js/util.js"></script>
+    <script src="assets/js/main.js"></script>
+
+    <!-- Exploded-view: toggle between two clean static poses of "Animation 1".
+         The baked Vectary spline oscillates through the timeline, so instead of
+         scrubbing we snap to two known-good frames: t=0 (assembled) and t=1.5
+         (the fully separated pose at peak offset). The model stays paused on the
+         chosen frame; orbit/zoom remain interactive. -->
+    <script>
+        (function () {
+            var model = document.getElementById('hw-model');
+            var btn = document.getElementById('hw-toggle');
+            var label = document.getElementById('hw-toggle-label');
+            if (!model || !btn) return;
+
+            var T_ASSEMBLED = 0.0;
+            var T_EXPLODED = 1.8;
+            var exploded = false;
+            var busy = false;
+
+            var hotspots = model.querySelectorAll('.hotspot');
+
+            function setHotspots(visible) {
+                hotspots.forEach(function (h) {
+                    if (visible) h.setAttribute('data-visible', '');
+                    else h.removeAttribute('data-visible');
+                });
+            }
+
+            function setLabel() {
+                btn.setAttribute('aria-pressed', exploded ? 'true' : 'false');
+                if (label) label.textContent = exploded ? 'Assembled view' : 'Explode view';
+            }
+
+            function goExplode() {
+                busy = true;
+                model.timeScale = 1;
+                model.currentTime = T_ASSEMBLED;
+                model.play({ repetitions: 1 });
+                model.addEventListener('finished', function onDone() {
+                    model.removeEventListener('finished', onDone);
+                    setHotspots(true);
+                    busy = false;
+                });
+            }
+
+            function goAssemble() {
+                busy = true;
+                setHotspots(false);
+                model.timeScale = -1;
+                model.currentTime = T_EXPLODED;
+                model.play({ repetitions: 1 });
+                model.addEventListener('finished', function onDone() {
+                    model.removeEventListener('finished', onDone);
+                    busy = false;
+                });
+            }
+
+            model.addEventListener('load', function () { model.pause(); });
+            btn.addEventListener('click', function () {
+                if (busy) return;
+                exploded = !exploded;
+                setLabel();
+                exploded ? goExplode() : goAssemble();
+            });
+        })();
+    </script>
+</body>
+
+</html>
