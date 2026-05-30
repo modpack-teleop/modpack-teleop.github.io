@@ -531,6 +531,44 @@
 
         <hr>
 
+        <!-- Leader Arms: interactive 3D viewer -->
+        <div class="section-header">
+            <h3>Leader Arms</h3>
+        </div>
+        <div class="task-desc">
+            We design and 3D-print two leader-arm variants: a pair of 6-DoF ARX5 leader arms for a customized mobile manipulation platform, and a pair of 7-DoF leader arms for the RB-Y1m robot. Given the CAD model of a target robot, each leader arm is constructed to be kinematically equivalent to its corresponding follower arm, following GELLO, enabling direct joint-space teleoperation. The leader arms are actuated with off-the-shelf Dynamixel servo motors.
+            <span style="display:block; margin-top:0.6em; font-size:0.9em; color:#777;">Drag to orbit · scroll to zoom · toggle between variants below.</span>
+        </div>
+        <div class="hw-grid">
+            <div class="hw-viewer">
+                <canvas id="arm-canvas"></canvas>
+                <div class="hw-badge">drag to orbit · scroll to zoom</div>
+            </div>
+            <div class="hw-panel">
+                <div class="hw-toggle-wrap">
+                    <div id="arm-switcher" style="display:flex;gap:0;border-radius:100px;background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.1);padding:3px;width:fit-content;">
+                        <button class="arm-var-btn active" data-variant="arx"   style="padding:8px 20px;border:none;border-radius:100px;background:#8C00FF;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:0.3px;transition:background 0.25s,color 0.25s;">ARX5 (6-DoF)</button>
+                        <button class="arm-var-btn"        data-variant="rby1m" style="padding:8px 20px;border:none;border-radius:100px;background:transparent;color:rgba(0,0,0,0.45);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:0.3px;transition:background 0.25s,color 0.25s;">RB-Y1m (7-DoF)</button>
+                    </div>
+                </div>
+                <div class="subsection-title" style="margin-top:1em;" id="arm-variant-title">ARX5 Leader Arm</div>
+                <p id="arm-variant-desc" style="font-size:0.88em;color:#444;line-height:1.6;margin:0 0 0.85em;">
+                    A 6-DoF leader arm kinematically equivalent to the ARX5 follower arm, enabling direct joint-space teleoperation. Motors were selected to provide the minimum torque necessary to hold the arm, with gravity compensation to alleviate operator fatigue during extended teleoperation.
+                </p>
+                <div class="subsection-title">Specifications</div>
+                <dl class="hw-specs" id="arm-specs">
+                    <dt>DoF</dt>         <dd>6</dd>
+                    <dt>Actuators</dt>   <dd>Dynamixel XM540 · XM430</dd>
+                    <dt>Structure</dt>   <dd>3D-printed PLA</dd>
+                </dl>
+                <p style="font-size:0.78em;color:#999;margin:auto 0 0;padding-top:0.5em;border-top:1px solid #f0f0f0;">
+                    Hardware &amp; software will be open-sourced.
+                </p>
+            </div>
+        </div>
+
+        <hr>
+
         <!-- Capability Experiments -->
         <div class="section-header">
             <h3>Capability Experiments</h3>
@@ -849,7 +887,7 @@
 
     const pmrem = new THREE.PMREMGenerator(renderer);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xffffff);
+    scene.background = new THREE.Color(0xfaf7ff);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.02).texture;
     pmrem.dispose();
 
@@ -1153,6 +1191,209 @@
                 el.style.top  = ((-ndc.y * 0.5 + 0.5) * H) + 'px';
             });
         }
+    })();
+    </script>
+
+    <!-- ── Arm viewer ─────────────────────────────────────────────────────── -->
+    <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
+
+    const canvas = document.getElementById('arm-canvas');
+    if (!canvas) throw new Error('no arm-canvas');
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+
+    const scene  = new THREE.Scene();
+    scene.background = new THREE.Color(0xfaf7ff);
+
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 50000);
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.6;
+    canvas.addEventListener('pointerdown', () => { controls.autoRotate = false; });
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+    const keyLight = new THREE.DirectionalLight(0xfff8f0, 3.5);
+    keyLight.position.set(2, 3, 2).normalize().multiplyScalar(800);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.radius = 2;
+    scene.add(keyLight);
+    const fill = new THREE.DirectionalLight(0xc8dcff, 1.2);
+    fill.position.set(-2, 0.5, -1).normalize().multiplyScalar(600);
+    scene.add(fill);
+    const rim = new THREE.DirectionalLight(0x8833ff, 0.5);
+    rim.position.set(-0.5, -1, -2).normalize().multiplyScalar(500);
+    scene.add(rim);
+
+    const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(10000, 10000),
+        new THREE.ShadowMaterial({ opacity: 0.08 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const MAT = {
+        pla:   new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6,  metalness: 0.0, flatShading: true }),
+        motor: new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.3,  metalness: 0.7, flatShading: true }),
+        metal: new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.2,  metalness: 0.9, flatShading: true }),
+    };
+    function getMat(n) {
+        n = (n||'').toLowerCase();
+        if (n === 'motor') return MAT.motor;
+        if (n === 'metal') return MAT.metal;
+        return MAT.pla;
+    }
+
+    const MODELS = {
+        arx:   { url: 'models/arms/arx_arm.glb',   cam: new THREE.Vector3(0.5, 0.6, 1.0),  root: null },
+        rby1m: { url: 'models/arms/rby1m_arm.glb',  cam: new THREE.Vector3(-0.3, 0.8, 1.4), root: null },
+    };
+    const CONTENT = {
+        arx: {
+            title: 'ARX5 Leader Arm',
+            desc:  'A 6-DoF leader arm kinematically equivalent to the ARX5 follower arm, enabling direct joint-space teleoperation. Motors were selected to provide the minimum torque necessary to hold the arm, with gravity compensation to alleviate operator fatigue during extended teleoperation.',
+            specs: [['DoF','6'],['Actuators','Dynamixel XM540 · XM430'],['Structure','3D-printed PLA']],
+        },
+        rby1m: {
+            title: 'RB-Y1m Leader Arm',
+            desc:  'A 7-DoF leader arm kinematically equivalent to the RB-Y1m follower arm. An additional current budget is allocated to actuated motors to support haptic feedback torques, enabling safer and more precise teleoperation of contact-rich tasks.',
+            specs: [['DoF','7'],['Actuators','Dynamixel XM540 · XM430'],['Structure','3D-printed PLA']],
+        },
+    };
+
+    let active = 'arx', busy = false;
+    const gltfLoader = new GLTFLoader();
+
+    function setOpacity(root, op) {
+        root.traverse(c => { if (c.isMesh) { c.material.transparent = op < 1; c.material.opacity = op; } });
+    }
+    function fade(root, to, ms) {
+        return new Promise(res => {
+            setOpacity(root, to === 1 ? 0 : 1);
+            root.visible = true;
+            const t0 = performance.now();
+            function tick() {
+                const p = Math.min((performance.now()-t0)/ms, 1);
+                const e = p*p*(3-2*p);
+                setOpacity(root, to === 1 ? e : 1-e);
+                if (p < 1) requestAnimationFrame(tick);
+                else { if (to === 0) root.visible = false; res(); }
+            }
+            requestAnimationFrame(tick);
+        });
+    }
+
+    async function loadModel(key) {
+        const m = MODELS[key];
+        if (m.root) return m.root;
+        const gltf = await new Promise((res,rej) => gltfLoader.load(m.url, res, undefined, rej));
+        gltf.scene.traverse(c => {
+            if (!c.isMesh) return;
+            c.material = getMat(c.name);
+            c.castShadow = true; c.receiveShadow = true;
+        });
+        gltf.scene.rotation.x = -Math.PI / 2;
+        const root = new THREE.Group();
+        root.add(gltf.scene);
+        scene.add(root);
+        const box = new THREE.Box3().setFromObject(root);
+        const scale = 600 / Math.max(...box.getSize(new THREE.Vector3()).toArray());
+        root.scale.setScalar(scale);
+        const box2 = new THREE.Box3().setFromObject(root);
+        root.position.sub(box2.getCenter(new THREE.Vector3()));
+        root.visible = false;
+        m.root = root;
+        m.box  = new THREE.Box3().setFromObject(root);
+        return root;
+    }
+
+    function fitCamera(key) {
+        const m = MODELS[key];
+        const center = m.box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(...m.box.getSize(new THREE.Vector3()).toArray());
+        controls.target.copy(center);
+        camera.position.copy(center).addScaledVector(m.cam.clone().normalize(), maxDim * 2.2);
+        camera.near = maxDim * 0.001; camera.far = maxDim * 30;
+        camera.updateProjectionMatrix();
+        ground.position.y = m.box.min.y - 1;
+        keyLight.shadow.camera.left = keyLight.shadow.camera.bottom = -maxDim * 0.8;
+        keyLight.shadow.camera.right = keyLight.shadow.camera.top   =  maxDim * 0.8;
+        keyLight.shadow.camera.far   = maxDim * 4;
+        keyLight.shadow.camera.updateProjectionMatrix();
+        controls.update();
+    }
+
+    function updatePanel(key) {
+        const c = CONTENT[key];
+        document.getElementById('arm-variant-title').textContent = c.title;
+        document.getElementById('arm-variant-desc').textContent  = c.desc;
+        const dl = document.getElementById('arm-specs');
+        dl.innerHTML = c.specs.map(([k,v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+    }
+
+    async function switchTo(key) {
+        if (key === active || busy) return;
+        busy = true;
+        const prev = MODELS[active].root;
+        if (prev) await fade(prev, 0, 250);
+        const next = await loadModel(key);
+        fitCamera(key);
+        controls.autoRotate = true;
+        await fade(next, 1, 400);
+        updatePanel(key);
+        active = key; busy = false;
+    }
+
+    document.querySelectorAll('.arm-var-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.arm-var-btn').forEach(b => {
+                b.style.background = 'transparent';
+                b.style.color = 'rgba(0,0,0,0.45)';
+            });
+            btn.style.background = '#8C00FF';
+            btn.style.color = '#fff';
+            switchTo(btn.dataset.variant);
+        });
+    });
+
+    // Resize
+    const ro = new ResizeObserver(() => {
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+    });
+    ro.observe(canvas);
+
+    // Lazy-load when section scrolls into view
+    const io = new IntersectionObserver(entries => {
+        if (!entries[0].isIntersecting) return;
+        io.disconnect();
+        loadModel('arx').then(root => {
+            root.visible = true;
+            setOpacity(root, 1);
+            fitCamera('arx');
+        });
+    }, { rootMargin: '200px' });
+    io.observe(canvas);
+
+    (function render() {
+        controls.update();
+        renderer.render(scene, camera);
+        requestAnimationFrame(render);
     })();
     </script>
 </body>
