@@ -4,7 +4,7 @@
 <head>
     <title>ModPack: An Extensible Teleoperation Interface for Bimanual Mobile Manipulation</title>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=1000">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="assets/css/main.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -121,7 +121,7 @@
 
         /* Main content */
         #main-content {
-            max-width: 900px;
+            max-width: 960px;
             margin: 0 auto;
             padding: 2.5em 2em 3em;
         }
@@ -289,21 +289,21 @@
         /* Hardware / exploded view */
         .hw-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-            gap: 1em;
-            align-items: stretch;
+            grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+            gap: 1.5em;
+            align-items: start;
             margin-bottom: 1em;
         }
 
         .hw-viewer {
             position: relative;
             min-width: 0;
-            max-width: 100%;
             background: #faf7ff;
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
             aspect-ratio: 1 / 1;
+            max-height: 75vh;
         }
 
         .hw-viewer canvas {
@@ -357,6 +357,8 @@
             padding: 1.25em 1.25em 1em;
             display: flex;
             flex-direction: column;
+            overflow-y: auto;
+            /* height synced to adjacent viewer via syncPanelHeights() */
         }
 
         .hw-toggle-wrap {
@@ -495,7 +497,7 @@
             <div class="hw-viewer">
                 <canvas id="hw-canvas"></canvas>
                 <div id="hw-label-layer" style="position:absolute;inset:0;pointer-events:none;"></div>
-                <div class="hw-badge">drag to orbit · scroll to zoom</div>
+                <div class="hw-badge">drag to orbit · ctrl+drag to pan · scroll to zoom</div>
             </div>
             <div class="hw-panel">
                 <div class="hw-toggle-wrap">
@@ -542,7 +544,7 @@
         <div class="hw-grid">
             <div class="hw-viewer">
                 <canvas id="arm-canvas"></canvas>
-                <div class="hw-badge">drag to orbit · scroll to zoom</div>
+                <div class="hw-badge">drag to orbit · ctrl+drag to pan · scroll to zoom</div>
             </div>
             <div class="hw-panel">
                 <div class="hw-toggle-wrap">
@@ -893,8 +895,9 @@
 
     const camera = new THREE.PerspectiveCamera(28, 1, 1, 5000);
     const controls = new OrbitControls(camera, canvas);
-    controls.enableDamping = true; controls.dampingFactor = 0.08;
-
+    controls.enableDamping = true; controls.dampingFactor = 0.25;
+    controls.zoomSpeed = 4.0;
+    controls.enablePan = true; controls.panSpeed = 1.5; controls.screenSpacePanning = true;
     scene.add(new THREE.AmbientLight(0xffffff, 0.25));
     const keyLight = new THREE.DirectionalLight(0xffffff, 3.5);
     keyLight.position.set(300, 500, 400);
@@ -942,12 +945,12 @@
     const METAL_MAT = new THREE.MeshStandardMaterial({color:0x282726, roughness:0.2,  metalness:0.75});
     const FRAME_MAT = new THREE.MeshStandardMaterial({color:0x3f3d3b, roughness:0.3,  metalness:0.75});
 
-    const PLA_NODES        = new Set(['top_bracket','bottom_bracket','front_panel','back_panel','main_frame_shell','shelf_a_frame','shelf_c_frame','electronics']);
-    const FRAME_METAL_NODES= new Set(['main_frame_bars']);
+    const PLA_NODES        = new Set(['top_bracket','bottom_bracket','front_panel','back_panel','main_frame_shell','electronics']);
+    const FRAME_METAL_NODES= new Set(['main_frame_bars','shelf_a_frame','shelf_c_frame']);
     const BATT_NODES       = new Set(['shelf_a_battery','shelf_b_battery','shelf_c_battery','shelf_d_battery','shelf_e_battery']);
     const HOLD_NODES       = new Set(['shelf_a_holder','shelf_b_holder','shelf_c_holder','shelf_d_holder','shelf_e_holder']);
-    const PCB_NODES        = new Set(['top_bracket_accessories','front_panel_accessories','bottom_bracket_accessories']);
-    const METAL_NODES      = new Set(['back_panel_accessories']);
+    const PCB_NODES        = new Set([]);
+    const METAL_NODES      = new Set(['back_panel_accessories','top_bracket_accessories','bottom_bracket_accessories','front_panel_accessories']);
 
     // id: stable key for localStorage offset storage — do not change after tuning
     // wo: world-space offset [x,y,z] added to part bbox center before projecting.
@@ -1051,7 +1054,7 @@
         }
         if (label) label.textContent = 'Explode view';
         const badge = document.querySelector('.hw-badge');
-        if (badge) badge.textContent = 'drag to orbit · scroll to zoom';
+        if (badge) badge.textContent = 'drag to orbit · ctrl+drag to pan · scroll to zoom';
         if (btn) btn.disabled = false;
     }, xhr => {
         const pct = xhr.loaded && xhr.total ? Math.round(xhr.loaded / xhr.total * 100) : '…';
@@ -1194,6 +1197,21 @@
     })();
     </script>
 
+    <!-- ── Sync panel heights to viewers ──────────────────────────────────── -->
+    <script>
+    function syncPanelHeights() {
+        document.querySelectorAll('.hw-grid').forEach(grid => {
+            const viewer = grid.querySelector('.hw-viewer');
+            const panel  = grid.querySelector('.hw-panel');
+            if (!viewer || !panel) return;
+            panel.style.height = viewer.offsetHeight + 'px';
+        });
+    }
+    window.addEventListener('resize', syncPanelHeights);
+    // Run after layout settles
+    requestAnimationFrame(() => requestAnimationFrame(syncPanelHeights));
+    </script>
+
     <!-- ── Arm viewer ─────────────────────────────────────────────────────── -->
     <script type="module">
     import * as THREE from 'three';
@@ -1217,7 +1235,9 @@
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 50000);
     const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
+    controls.dampingFactor = 0.25;
+    controls.zoomSpeed = 4.0;
+    controls.enablePan = true; controls.panSpeed = 1.5; controls.screenSpacePanning = true;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.6;
     canvas.addEventListener('pointerdown', () => { controls.autoRotate = false; });
