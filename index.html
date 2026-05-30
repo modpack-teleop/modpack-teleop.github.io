@@ -336,14 +336,6 @@
             border-radius: 4px; white-space: nowrap;
             box-shadow: 0 1px 4px rgba(0,0,0,0.12);
         }
-        /* label-adjust mode */
-        .hw-label.adjustable {
-            pointer-events: all;
-            cursor: grab;
-            outline: 1.5px dashed #8C00FF;
-            outline-offset: 2px;
-        }
-        .hw-label.adjustable:active { cursor: grabbing; }
 
         .hw-badge {
             position: absolute;
@@ -920,36 +912,23 @@
     const METAL_NODES      = new Set(['back_panel_accessories']);
 
     // id: stable key for localStorage offset storage — do not change after tuning
+    // wo: world-space offset [x,y,z] added to part bbox center before projecting.
+    // Chosen to push the label clear of the geometry from the hero camera angle.
+    // Camera dir ≈ (0.7, 0.55, 0.85): +X=screen-right, +Y=screen-up, -Z=screen-right+up
     const LABEL_DEFS = [
-        {id:'front_panel',    name:'Front Panel',               nodes:['front_panel']},
-        {id:'back_panel',     name:'Back Panel',                nodes:['back_panel']},
-        {id:'bar_bracket',    name:'Bar Bracket',               nodes:['top_bracket']},
-        {id:'toggle_latch',   name:'Toggle Latch',              nodes:['back_panel_accessories']},
-        {id:'frame_rails',    name:'Frame Rails',               nodes:['main_frame_bars']},
-        {id:'mini_pc',        name:'Mini PC Holder',            nodes:['main_frame_shell']},
-        {id:'batteries',      name:'Battery Banks',             nodes:['shelf_a_battery','shelf_b_battery','shelf_c_battery','shelf_d_battery','shelf_e_battery','shelf_a_holder','shelf_b_holder','shelf_c_holder','shelf_d_holder','shelf_e_holder']},
-        {id:'charger_holder', name:'Vision Pro Charger Holder', nodes:['electronics']},
-        {id:'u2d2',           name:'U2D2 Power Hub',            nodes:['bottom_bracket_accessories']},
-        {id:'power_board_frt',name:'Power Board',               nodes:['front_panel_accessories']},
+        {id:'front_panel',    name:'Front Panel',               nodes:['front_panel'],              wo:[108, 505, -30]},
+        {id:'back_panel',     name:'Back Panel',                nodes:['back_panel'],               wo:[276, 494, -317]},
+        {id:'bar_bracket',    name:'Bar Bracket',               nodes:['top_bracket'],              wo:[26, -46, 42]},
+        {id:'toggle_latch',   name:'Toggle Latch',              nodes:['back_panel_accessories'],   wo:[42, -28, -136]},
+        {id:'frame_rails',    name:'Frame Rails',               nodes:['main_frame_bars'],          wo:[-144, 62, 69], flip:true},
+        {id:'mini_pc',        name:'Mini PC Holder',            nodes:['main_frame_shell'],         wo:[597, 76, -152]},
+        {id:'batteries',      name:'Battery Banks',             nodes:['shelf_a_battery','shelf_b_battery','shelf_c_battery','shelf_d_battery','shelf_e_battery','shelf_a_holder','shelf_b_holder','shelf_c_holder','shelf_d_holder','shelf_e_holder'], wo:[80, 0, 0]},
+        {id:'charger_holder', name:'Vision Pro Charger Holder', nodes:['electronics'],              wo:[52, -72, 23], flip:true},
+        {id:'u2d2',           name:'U2D2 Power Hub',            nodes:['bottom_bracket_accessories'],wo:[-87, 67, 132], flip:true},
+        {id:'power_board_frt',name:'Power Board',               nodes:['front_panel_accessories'],  wo:[135, 676, 91]},
     ];
 
-    // Paste the output of "Copy offsets" here to bake in final positions permanently.
-    // Shape: { id: {x, y, flip}, ... }  — pixel offsets from the projected 3D anchor point.
-    const BAKED_OFFSETS = {};
-
-    const LABEL_STORE_KEY = 'hw_label_offsets_v1';
     const adjustMode = location.search.includes('labels');
-
-    function loadOffsets() {
-        // localStorage overrides baked offsets in adjust mode; baked offsets used in production
-        try {
-            const stored = JSON.parse(localStorage.getItem(LABEL_STORE_KEY)) || {};
-            return Object.assign({}, BAKED_OFFSETS, stored);
-        } catch { return BAKED_OFFSETS; }
-    }
-    function saveOffsets(offsets) {
-        localStorage.setItem(LABEL_STORE_KEY, JSON.stringify(offsets));
-    }
 
     const nodeMap = {};
     let labelAnchors = [];
@@ -1015,20 +994,17 @@
         initTarget = controls.target.clone();
 
         // Build grouped label anchors
-        const storedOffsets = loadOffsets();
         labelAnchors = LABEL_DEFS.map(def => {
-            const saved = storedOffsets[def.id] || {x:0, y:0, flip:false};
             const el = document.createElement('div');
-            el.className = 'hw-label' + (adjustMode ? ' adjustable' : '');
-            if (saved.flip) el.style.flexDirection = 'row-reverse';
+            el.className = 'hw-label';
+            if (def.flip) el.style.flexDirection = 'row-reverse';
             el.innerHTML = `<span class="hw-label-dot"></span><span class="hw-label-text">${def.name}</span>`;
             labelLayer.appendChild(el);
-            return { id: def.id, el, nodes: def.nodes, dx: saved.x, dy: saved.y, flip: !!saved.flip };
+            return { id: def.id, el, nodes: def.nodes, wo: new THREE.Vector3(...(def.wo || [0,0,0])), flip: !!def.flip };
         });
 
         if (adjustMode) {
             setupAdjustMode();
-            // Force exploded + labels visible so you can immediately adjust
             setTimeout(() => {
                 exploded = true;
                 animateTo(true);
@@ -1046,39 +1022,55 @@
     });
 
     function setupAdjustMode() {
+        // Inject copy button
+        const bar = document.createElement('div');
+        bar.style.cssText = 'position:absolute;top:10px;right:10px;z-index:10;display:flex;gap:6px;align-items:center;';
+        bar.innerHTML = `<span style="font:600 11px Inter,sans-serif;color:#555;">Label adjust</span>
+            <button id="hw-adj-copy" style="font:600 11px Inter,sans-serif;padding:4px 10px;border-radius:100px;border:none;background:#8C00FF;color:#fff;cursor:pointer;">Copy wo</button>`;
+        wrap.appendChild(bar);
 
-        // Make labels draggable; click (no move) flips dot side
-        labelAnchors.forEach(entry => {
-            const { el } = entry;
-            let dragging = false, moved = false, startX, startY, startDx, startDy;
-            el.addEventListener('pointerdown', e => {
-                dragging = true; moved = false;
-                startX = e.clientX; startY = e.clientY;
-                startDx = entry.dx; startDy = entry.dy;
-                el.setPointerCapture(e.pointerId);
-                e.stopPropagation();
-            });
-            el.addEventListener('pointermove', e => {
-                if (!dragging) return;
-                const dx = e.clientX - startX, dy = e.clientY - startY;
-                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-                entry.dx = startDx + dx;
-                entry.dy = startDy + dy;
-                e.stopPropagation();
-            });
-            el.addEventListener('pointerup', () => {
-                dragging = false;
-                if (!moved) {
-                    // Click without drag → flip dot side
-                    entry.flip = !entry.flip;
-                    el.style.flexDirection = entry.flip ? 'row-reverse' : '';
-                }
-                const offsets = loadOffsets();
-                offsets[entry.id] = {x: entry.dx, y: entry.dy, flip: entry.flip};
-                saveOffsets(offsets);
-            });
+        document.getElementById('hw-adj-copy').addEventListener('click', () => {
+            const lines = labelAnchors.map(e =>
+                `        {id:'${e.id}', wo:[${Math.round(e.wo.x)}, ${Math.round(e.wo.y)}, ${Math.round(e.wo.z)}]${e.flip ? ', flip:true' : ''}}`);
+            navigator.clipboard.writeText(lines.join(',\n')).then(() => alert('Copied — paste into LABEL_DEFS'));
         });
 
+        labelAnchors.forEach(entry => {
+            entry.el.style.pointerEvents = 'all';
+            entry.el.style.cursor = 'grab';
+            entry.el.style.outline = '1.5px dashed #8C00FF';
+            entry.el.style.outlineOffset = '2px';
+            let dragging = false, moved = false, startX, startY, startWo;
+            entry.el.addEventListener('pointerdown', e => {
+                dragging = true; moved = false;
+                startX = e.clientX; startY = e.clientY;
+                startWo = entry.wo.clone();
+                entry.el.setPointerCapture(e.pointerId);
+                entry.el.style.cursor = 'grabbing';
+                e.stopPropagation();
+            });
+            entry.el.addEventListener('pointermove', e => {
+                if (!dragging) return;
+                const px = e.clientX - startX, py = e.clientY - startY;
+                if (Math.abs(px) > 3 || Math.abs(py) > 3) moved = true;
+                const dist = camera.position.distanceTo(controls.target);
+                const fovRad = camera.fov * Math.PI / 180;
+                const worldPerPx = (2 * dist * Math.tan(fovRad / 2)) / wrap.clientHeight;
+                const right = new THREE.Vector3().crossVectors(
+                    camera.getWorldDirection(new THREE.Vector3()), camera.up
+                ).normalize();
+                entry.wo.copy(startWo).addScaledVector(right, px * worldPerPx).addScaledVector(camera.up, -py * worldPerPx);
+                e.stopPropagation();
+            });
+            entry.el.addEventListener('pointerup', () => {
+                dragging = false;
+                entry.el.style.cursor = 'grab';
+                if (!moved) {
+                    entry.flip = !entry.flip;
+                    entry.el.style.flexDirection = entry.flip ? 'row-reverse' : '';
+                }
+            });
+        });
     }
 
     function animateTo(toExploded) {
@@ -1144,9 +1136,7 @@
         if (labelAnchors.length) {
             const W = wrap.clientWidth, H = wrap.clientHeight;
             const _box = new THREE.Box3();
-            labelAnchors.forEach(({el, nodes, dx, dy}) => {
-                // Recompute world-space center from live node bboxes every frame
-                // so labels stick exactly to the parts as they move and as camera orbits.
+            labelAnchors.forEach(({el, nodes, wo}) => {
                 const worldPos = new THREE.Vector3();
                 let count = 0;
                 nodes.forEach(name => {
@@ -1155,12 +1145,12 @@
                     if (!_box.isEmpty()) { worldPos.add(_box.getCenter(new THREE.Vector3())); count++; }
                 });
                 if (!count) { el.style.display = 'none'; return; }
-                worldPos.divideScalar(count);
+                worldPos.divideScalar(count).add(wo);
                 const ndc = worldPos.clone().project(camera);
                 if (ndc.z > 1) { el.style.display = 'none'; return; }
                 el.style.display = 'flex';
-                el.style.left = ((ndc.x * 0.5 + 0.5) * W + dx) + 'px';
-                el.style.top  = ((-ndc.y * 0.5 + 0.5) * H + dy) + 'px';
+                el.style.left = ((ndc.x * 0.5 + 0.5) * W) + 'px';
+                el.style.top  = ((-ndc.y * 0.5 + 0.5) * H) + 'px';
             });
         }
     })();
